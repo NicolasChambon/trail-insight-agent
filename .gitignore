@@ -1,0 +1,16 @@
+# Local, non-versioned working files (brief, scratch, private notes)
+local/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Environment & secrets - Never commit
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+.vscode/
