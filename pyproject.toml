@@ -7,7 +7,10 @@ authors = [
     { name = "NicolasChambon", email = "nico.chambon@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "anthropic>=0.122.0",
+    "python-dotenv>=1.2.3",
+]
 
 [project.scripts]
 trail-insight-agent = "trail_insight_agent:main"
@@ -15,3 +18,17 @@ trail-insight-agent = "trail_insight_agent:main"
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.3",
+]
+
+[tool.ruff]
+line-length = 80
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
+quote-style = "double"
