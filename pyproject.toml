@@ -1,0 +1,17 @@
+[project]
+name = "trail-insight-agent"
+version = "0.1.0"
+description = "A conversational GenAI agent that explains the performance of my trail-running training, grounded in my own Strava data stored in BigQuery"
+readme = "README.md"
+authors = [
+    { name = "NicolasChambon", email = "nico.chambon@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+trail-insight-agent = "trail_insight_agent:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
