@@ -323,6 +323,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "httpx" },
     { name = "python-dotenv" },
 ]
 
@@ -334,6 +335,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.122.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
 ]
 
