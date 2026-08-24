@@ -1,0 +1,107 @@
+[
+  {
+    "name": "id",
+    "type": "INT64",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "name",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "sport_type",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "workout_type",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "start_date_local",
+    "type": "DATETIME",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "distance",
+    "type": "FLOAT64",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "moving_time",
+    "type": "INT64",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "elapsed_time",
+    "type": "INT64",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "total_elevation_gain",
+    "type": "FLOAT64",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "average_speed",
+    "type": "FLOAT64",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "average_heartrate",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "has_heartrate",
+    "type": "BOOL",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "average_cadence",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "average_temp",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "suffer_score",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "manual",
+    "type": "BOOL",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "trainer",
+    "type": "BOOL",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "commute",
+    "type": "BOOL",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "device_name",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "elev_high",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "elev_low",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  }
+]
