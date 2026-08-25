@@ -1,0 +1,334 @@
+# The security boundary of this project. Every query the agent can run is
+# below, in full. Nothing else is reachable.
+kind: source
+name: trail-bq
+type: bigquery
+project: trail-insight-agent
+location: EU
+writeMode: blocked
+maxQueryResultRows: 200
+maximumBytesBilled: 104857600
+impersonateServiceAccount: trail-agent@trail-insight-agent.iam.gserviceaccount.com
+# No allowedDatasets: the boundary is enforced by IAM instead, at object
+# granularity. The service account can read v_activities and nothing else;
+# keeping allowedDatasets would require granting it dataset metadata access.
+
+---
+kind: tool
+name: describe_dataset
+type: bigquery-sql
+source: trail-bq
+annotations:
+  readOnlyHint: true
+  destructiveHint: false
+description: |
+  Returns what the training history actually contains, before any other
+  query: the date range covered, the sports present with their exact
+  spelling, and the share of activities carrying a heart-rate measurement,
+  year by year.
+
+  Call this first in a conversation. Two reasons:
+  - sport names must be used verbatim ("TrailRun", not "Trail Run"); a
+    wrong spelling returns zero rows, which does not mean zero activities;
+  - heart-rate coverage is far from complete in the early years. Any
+    heart-rate figure spanning several years must be reported together
+    with the share of activities it was actually computed on.
+
+  Takes no arguments.
+statement: |
+  WITH per_sport AS (
+    SELECT sport, COUNT(*) AS n_activities
+    FROM `trail-insight-agent.trail_insight.v_activities`
+    GROUP BY sport
+  ),
+  per_year AS (
+    SELECT
+      EXTRACT(YEAR FROM activity_date) AS year,
+      COUNT(*) AS n_activities,
+      COUNTIF(avg_heartrate_bpm IS NOT NULL) AS n_with_heartrate,
+      ROUND(100 * COUNTIF(avg_heartrate_bpm IS NOT NULL) / COUNT(*))
+        AS pct_with_heartrate
+    FROM `trail-insight-agent.trail_insight.v_activities`
+    GROUP BY year
+  )
+  SELECT
+    (SELECT MIN(activity_date)
+     FROM `trail-insight-agent.trail_insight.v_activities`)
+      AS history_starts_on,
+    (SELECT MAX(activity_date)
+     FROM `trail-insight-agent.trail_insight.v_activities`)
+      AS history_ends_on,
+    (SELECT SUM(n_activities) FROM per_sport) AS n_activities_total,
+    TO_JSON_STRING(ARRAY(
+      SELECT AS STRUCT sport, n_activities
+      FROM per_sport ORDER BY n_activities DESC
+    )) AS sports,
+    TO_JSON_STRING(ARRAY(
+      SELECT AS STRUCT year, n_activities, n_with_heartrate, pct_with_heartrate
+      FROM per_year ORDER BY year
+    )) AS heartrate_coverage_by_year
+
+---
+kind: tool
+name: find_activities
+type: bigquery-sql
+source: trail-bq
+annotations:
+  readOnlyHint: true
+  destructiveHint: false
+description: |
+  Lists the activities recorded bewteen two dates, most recent first.
+  Use it to locate on or several outings before asking for their detail.
+
+  Call describe_dataset first if you have not already: sport names must be 
+  spelled exactly as it returns them, and a wrong spelling yields zero rows, 
+  which does not mean zero activities.
+
+  Notes on the figures returned:
+  - pace_display is computed on elapsed time, (watch start to stop), not on 
+  Strava's moving time. Read it together with stopped_share_pct: a high stopped 
+  share means the pace is true but not representative of the effort. Copy 
+  pace_display verbatim; never recompute a pace.
+  - elevation_gain_per_km describes the terrain. Two outings are only 
+  comparable at similar distance AND similar elevation gain per km.
+parameters:
+  - name: date_from
+    type: string
+    description: Inclusive start date, ISO format YYYY-MM-DD.
+    allowedValues:
+      - '^\d{4}-\d{2}-\d{2}$'
+  - name: date_to
+    type: string
+    description: Inclusive end date, ISO format YYYY-MM-DD.
+    allowedValues:
+      - '^\d{4}-\d{2}-\d{2}$'
+  - name: sport
+    type: string
+    description: |
+      Exact sport name as returned by describe_dataset. Omit to include every 
+      sport.
+    required: false
+    allowedValues:
+      - TrailRun
+      - Run
+      - Ride
+      - VirtualRide
+      - Hike
+      - Workout
+      - BackcountrySki
+      - Kayaking
+      - Swim
+      - AlpineSki
+      - WeightTraining
+      - RockClimbing
+      - Walk
+      - Crossfit
+      - Yoga
+      - VirtualRun
+      - Canoeing
+  - name: limit
+    type: integer
+    description: Maximum number of activities to return.
+    default: 50
+    minValue: 1
+    maxValue: 200
+statement: |
+  SELECT
+    activity_id,
+    activity_date,
+    activity_name,
+    sport,
+    workout_label,
+    distance_km,
+    elevation_gain_m,
+    elevation_gain_per_km,
+    duration_display,
+    pace_display,
+    stopped_share_pct,
+  FROM `trail-insight-agent.trail_insight.v_activities`
+  WHERE activity_date BETWEEN PARSE_DATE('%Y-%m-%d', @date_from)
+                          AND PARSE_DATE('%Y-%m-%d', @date_to)
+    AND (@sport IS NULL OR sport = @sport)
+  ORDER BY activity_date DESC
+  LIMIT @limit
+
+---
+kind: tool
+name: get_activity
+type: bigquery-sql
+source: trail-bq
+annotations:
+  readOnlyHint: true
+  destructiveHint: false
+description: |
+  Returns everything recorded about one activity, identified by the activity_id 
+  returned by find_activities. Do not guess an activity_id.
+
+  Notes on the figures returned:
+  - duration_s is elapsed time, watch start to stop. moving_time_s is Strava's 
+    own estimate and excludes samples below an unpublished speed threshold, 
+    which fires exactly on steep climbs. Every pace here is computed on elapsed 
+    time.
+  - stopped_share_pct qualifies every pace. Above roughly 10%, say so.
+  - effort_km and pace_s_per_effort_km use the French trail convention 
+    "km-effort" = distance_km + elevation_gain_m / 100. It is a linear
+    convention, not a measurement: it ignores descent and underestimates the 
+    cost of very steep ground. Describe it as a convention whenever you use it.
+  - avg_heartrate_bpm is NULL when no heart-rate monitor was worn. Say so
+    rather than omitting it.
+parameters:
+  - name: activity_id
+    type: integer
+    description: The Strava activity id, as returned by find_activities.
+statement: |
+  SELECT *
+  FROM `trail-insight-agent.trail_insight.v_activities`
+  WHERE activity_id = @activity_id
+
+---
+kind: tool
+name: summarize_period
+type: bigquery-sql
+source: trail-bq
+annotations:
+  readOnlyHint: true
+  destructiveHint: false
+description: |
+  Aggregates training volume over a date range: number of activities,
+  total distance, total elevation gain, total duration, per-week rates,
+  and a breakdown per sport. Use it for questions about volume, load, or
+  how much was done over a month, a season or a year.
+
+  date_from must be earlier than or equal to date_to; an inverted range
+  returns zero activities, which does not mean zero activities happened.
+
+  Comparing two periods of different lengths:
+  - Compare the *_per_week rates, never the totals. A month against two
+    years compared on totals is meaningless.
+  - period_days is the requested span. days_covered is how much of it the
+    data can actually cover, which is smaller when the period is not over
+    yet. The rates are computed on days_covered. If days_covered is lower
+    than period_days, say that the period is still in progress.
+
+  Coverage, and it is not optional to report it:
+  - n_activities is the number of activities the totals were computed on.
+  - avg_heartrate_bpm is averaged only over the activities that carry a
+    heart-rate measurement. n_with_heartrate and pct_with_heartrate say
+    how many that was. Whenever pct_with_heartrate is below 100, state the
+    figure together with its coverage, e.g. "142 bpm, over the 46% of your
+    sessions in that window that carry a heart-rate measurement".
+  - When pct_with_heartrate is 0, avg_heartrate_bpm is null. Say that the
+    data does not exist for that period. Do not omit the question.
+
+  This tool returns no pace. An average pace over a period mixes intervals,
+  races and recovery runs across flat and mountain terrain, and would be
+  exact but meaningless. Pace belongs to a single activity (get_activity).
+
+  total_effort_km uses the French trail convention "km-effort"
+  = distance_km + elevation_gain_m / 100. A linear convention, not a
+  measurement: it ignores descent and underestimates very steep ground.
+parameters:
+  - name: date_from
+    type: string
+    description: Inclusive start date, ISO format YYYY-MM-DD.
+    allowedValues:
+      - '^\d{4}-\d{2}-\d{2}$'
+  - name: date_to
+    type: string
+    description: Inclusive end date, ISO format YYYY-MM-DD. Must not be
+      earlier than date_from.
+    allowedValues:
+      - '^\d{4}-\d{2}-\d{2}$'
+  - name: sport
+    type: string
+    description: |
+      Exact sport name as returned by describe_dataset. Omit to include
+      every sport; the by_sport breakdown is returned either way.
+    required: false
+    allowedValues:
+      - TrailRun
+      - Run
+      - Ride
+      - VirtualRide
+      - Hike
+      - Workout
+      - BackcountrySki
+      - Kayaking
+      - Swim
+      - AlpineSki
+      - WeightTraining
+      - RockClimbing
+      - Walk
+      - Crossfit
+      - Yoga
+      - VirtualRun
+      - Canoeing
+statement: |
+  WITH scoped AS (
+    SELECT *
+    FROM `trail-insight-agent.trail_insight.v_activities`
+    WHERE activity_date BETWEEN PARSE_DATE('%Y-%m-%d', @date_from)
+                            AND PARSE_DATE('%Y-%m-%d', @date_to)
+      AND (@sport IS NULL OR sport = @sport)
+  ),
+  span AS (
+    SELECT
+      DATE_DIFF(PARSE_DATE('%Y-%m-%d', @date_to),
+                PARSE_DATE('%Y-%m-%d', @date_from), DAY) + 1 AS period_days,
+      GREATEST(DATE_DIFF(
+        LEAST(PARSE_DATE('%Y-%m-%d', @date_to),
+              (SELECT MAX(activity_date)
+               FROM `trail-insight-agent.trail_insight.v_activities`)),
+        PARSE_DATE('%Y-%m-%d', @date_from), DAY) + 1, 0) AS days_covered
+  ),
+  by_sport AS (
+    SELECT
+      sport,
+      COUNT(*) AS n_activities,
+      ROUND(SUM(distance_km), 1) AS distance_km,
+      CAST(SUM(elevation_gain_m) AS INT64) AS elevation_gain_m,
+      SUM(duration_s) AS duration_s
+    FROM scoped
+    GROUP BY sport
+  )
+  SELECT
+    PARSE_DATE('%Y-%m-%d', @date_from) AS period_from,
+    PARSE_DATE('%Y-%m-%d', @date_to) AS period_to,
+    (SELECT period_days FROM span) AS period_days,
+    (SELECT days_covered FROM span) AS days_covered,
+    COUNT(*) AS n_activities,
+    ROUND(SUM(distance_km), 1) AS total_distance_km,
+    CAST(SUM(elevation_gain_m) AS INT64) AS total_elevation_gain_m,
+    ROUND(SUM(effort_km), 1) AS total_effort_km,
+    SUM(duration_s) AS total_duration_s,
+    FORMAT('%dh%02d', DIV(SUM(duration_s), 3600),
+           DIV(MOD(SUM(duration_s), 3600), 60)) AS total_duration_display,
+    ROUND(7 * SAFE_DIVIDE(COUNT(*), (SELECT days_covered FROM span)), 2)
+      AS activities_per_week,
+    ROUND(7 * SAFE_DIVIDE(SUM(distance_km),
+                          (SELECT days_covered FROM span)), 1)
+      AS distance_km_per_week,
+    ROUND(7 * SAFE_DIVIDE(SUM(elevation_gain_m),
+                          (SELECT days_covered FROM span)))
+      AS elevation_gain_m_per_week,
+    ROUND(AVG(distance_km), 1) AS avg_distance_km,
+    ROUND(AVG(elevation_gain_m)) AS avg_elevation_gain_m,
+    ROUND(AVG(avg_heartrate_bpm)) AS avg_heartrate_bpm,
+    COUNTIF(avg_heartrate_bpm IS NOT NULL) AS n_with_heartrate,
+    ROUND(100 * SAFE_DIVIDE(COUNTIF(avg_heartrate_bpm IS NOT NULL),
+                            COUNT(*))) AS pct_with_heartrate,
+    TO_JSON_STRING(ARRAY(
+      SELECT AS STRUCT sport, n_activities, distance_km,
+                       elevation_gain_m, duration_s
+      FROM by_sport ORDER BY n_activities DESC
+    )) AS by_sport
+  FROM scoped
+
+---
+kind: toolset
+name: trail_insight
+tools:
+  - describe_dataset
+  - find_activities
+  - get_activity
+  - summarize_period

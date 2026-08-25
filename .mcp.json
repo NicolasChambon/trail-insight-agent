@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "trail-insight": {
+      "command": "toolbox",
+      "args": ["--config", "mcp/tools.yaml", "--stdio"]
+    }
+  }
+}
