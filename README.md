@@ -30,7 +30,7 @@ guardrails, and an evaluation harness.
 
 ## Setup
 
-### Prerequisites
+### 1. Prerequisites
 
 | Tool                      | Version                     | Managed by                            |
 | :------------------------ | :-------------------------- | :------------------------------------ |
@@ -56,13 +56,13 @@ Note the bucket name: the project was renamed from genai-toolbox to
 mcp-toolbox, and search results still point at the old bucket, which
 404s on 1.x and serves 0.x — where the tools.yaml format is different.
 
-#### 1. Python environment
+### 2. Python environment
 
 `uv sync`
 
-#### 2. Credentials
+### 3. Credentials
 
-##### 2.1 BigQuery
+#### 3.1 BigQuery
 
 `gcloud auth login                # your indentity, for gcloud and bq`  
 `gcloud auth application-default  # the identity your CODE uses`  
@@ -70,7 +70,7 @@ mcp-toolbox, and search results still point at the old bucket, which
 
 Both are required and theu are not the same thing: bq uses the gcloud session, while any third-party binary — Toolbox included — uses ADC.
 
-##### 2.2 Strava
+#### 3.2 Strava
 
 The Strava API requires a Strava subscription since 2026-06 (individual
 athletes keep free bulk export; only the API was paywalled).
@@ -108,11 +108,11 @@ Verify:
 
 `uv run scripts/strava_whoami.py`
 
-#### 3. Fetch the activity history
+### 4. Fetch the activity history
 
 `uv run scripts/strava_fetch.py   # write data/raw/activities.json`
 
-#### 4. Build the Google Cloud side
+### 5. Build the Google Cloud side
 
 `/scripts/setup_gcp.sh`
 
@@ -125,13 +125,9 @@ otherwise.
 BigQuery runs in sandbox mode (no billing account), so every table expires
 60 days after creation. Re-run the script to rebuild.
 
-#### 5. Run the MCP server
+### 6. Run the MCP server
 
 `toolbox --config mcp/tools.yaml invoke describe_dataset  # smoke test`
 
 `.mcp.json` wires the same server into Claude Code over stdio; it is picked up
 automatically when Claude Code starts in this directory.
-
-```
-
-```
