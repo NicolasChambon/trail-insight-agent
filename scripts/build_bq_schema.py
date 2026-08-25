@@ -1,9 +1,9 @@
-"""Generate the BigQuery JSON schema file for ativities_raw.
+"""Generate the BigQuery JSON schema file for activities_raw.
 
 The field declaration in trail_insight_agent.schema is the single source of
 truth; this file is derived from it, never hand-edited.
 
-Usage: uv run sricpts/build_bq_schema.py
+Usage: uv run scripts/build_bq_schema.py
 """
 
 import json

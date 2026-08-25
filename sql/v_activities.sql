@@ -10,14 +10,18 @@ WITH base AS (
     DATE(start_date_local) AS activity_date,
     TIME(start_date_local) AS start_time_local,
     sport_type AS sport,
-    CASE workout_type
-      WHEN 0 THEN 'default'
-      WHEN 1 THEN 'race'
-      WHEN 2 THEN 'long_run'
-      WHEN 3 THEN 'workout'
-      WHEN 10 THEN 'default'
-      WHEN 11 THEN 'race'
-      WHEN 12 THEN 'workout'
+    -- workout_type is sport-dependent (0-3 running, runumbered from 10 for 
+    -- cycling, 30 on WeightTraining) and absent on most sports. The simple 
+    -- CASE form cannot match NULL, so this is the searched form.
+    CASE
+      WHEN workout_type IS NULL THEN 'unspecified'  -- Strava recorded none
+      WHEN workout_type = 0 THEN 'default'
+      WHEN workout_type = 1 THEN 'race'
+      WHEN workout_type = 2 THEN 'long_run'
+      WHEN workout_type = 3 THEN 'workout'
+      WHEN workout_type = 10 THEN 'default'
+      WHEN workout_type = 11 THEN 'race'
+      WHEN workout_type = 12 THEN 'workout'
       ELSE 'unknown'  -- undocumented codes are not guessed
     END AS workout_label,
 
