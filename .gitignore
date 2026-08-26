@@ -6,6 +6,9 @@ __pycache__/
 *.py[cod]
 .venv/
 
+# ADK local state - session history, rewritten on every run
+.adk/
+
 # Environment & secrets - Never commit
 .env
 .env.*
