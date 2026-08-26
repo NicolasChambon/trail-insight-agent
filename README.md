@@ -129,5 +129,8 @@ BigQuery runs in sandbox mode (no billing account), so every table expires
 
 `toolbox --config mcp/tools.yaml invoke describe_dataset  # smoke test`
 
-`.mcp.json` wires the same server into Claude Code over stdio; it is picked up
-automatically when Claude Code starts in this directory.
+The same server has two stdio clients, and neither is privileged over the
+other: `.mcp.json` wires it into Claude Code, picked up automatically when
+Claude Code starts in this directory, and `agents/trail_coach/agent.py` wires
+it into the ADK agent through an `McpToolset`. Same binary, same `tools.yaml`,
+same service account — one security surface to audit.

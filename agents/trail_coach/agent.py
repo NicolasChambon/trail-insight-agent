@@ -1,38 +1,27 @@
-"""Phase 5.1 - the first ADK agent, with a single hand-written tool.
+"""Phase 5.2 - the ADK agent, wired tot he four BigQuery tools over MCP.
 
-No MCP, no BigQuery: the point is to see the framework run the same loop that
-scripts/raw_tool_calling.py ran by hand, and nothing else.
+The tools are not defined here. They live in mcp/tools.yaml and are served by
+the MCP Toolbox binary, which ADK starts as a child process and talks to over
+stdio - exactly the way Claude Code reaches the same server through .mcp.json.
+One server, one servervice account, one security surface to audit.
 """
+
+from pathlib import Path
 
 from dotenv import load_dotenv
 from google.adk.agents import Agent
+from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
+
+from mcp import StdioServerParameters
 
 # The API key lives in the repo-root .env, next to the Strava credentials.
 # Loaded at import time, before the model is ever called.
 load_dotenv()
 
-
-def km_effort(distance_km: float, elevation_gain_m: float) -> dict:
-    """Convert a distance and elevation gain into "km-effort".
-
-    The French trail convention:
-    km-effort = distance_km + elevation_gain_m / 100.
-    A linear convention, not a measurement. It ignores descent and
-    underestimates the cost of very steep ground.
-
-    Args:
-      distance_km: Horizontal distance covered, in kilometers.
-      elevation_gain_m: Total elevation gain, in meters.
-
-    Returns:
-      The km-effort value, and the two inputs it was computed from.
-    """
-    return {
-        "km_effort": round(distance_km + elevation_gain_m / 100, 2),
-        "distance_km": distance_km,
-        "elevation_gain_m": elevation_gain_m,
-    }
-
+# Derived from this file, not from the working directory: adk web can be
+# launched from anywhere, and a relative config path would resolve against
+# whatever directory that happened to be.
+TOOLS_YAML = Path(__file__).resolve().parents[2] / "mcp" / "tools.yaml"
 
 # Pinned, not "gemini-flash-latest": that alias moves without notice, and an
 # evaluation harness aimed at a moving model measures nothing. On 2026-08-26
@@ -40,14 +29,37 @@ def km_effort(distance_km: float, elevation_gain_m: float) -> dict:
 # under load, when it answered at all. Revisit deliberately, never silently.
 MODEL = "gemini-3.5-flash"
 
+trail_insight = McpToolset(
+    connection_params=StdioConnectionParams(
+        server_params=StdioServerParameters(
+            command="toolbox",
+            args=["--config", str(TOOLS_YAML), "--stdio"],
+        ),
+        # Toolbox authenticates to BiqQuery and mints an impersonated token before
+        # it answers tools/list. The 5 s default is not enough on a cold start.
+        timeout=20.0,
+    ),
+    # The allow-list, restated client-side. The server would serve whatever
+    # tools.yaml declares; the agent asks for these four, by name. A tool
+    # added to the yaml stays invisible until it is named here too.
+    tool_filter=[
+        "describe_dataset",
+        "find_activities",
+        "get_activity",
+        "summarize_period",
+    ],
+)
+
 root_agent = Agent(
     name="trail_coach",
     model=MODEL,
-    description="Explains trail-running training figures.",
+    description="Answers questions about my trail-running history.",
     instruction=(
-        "You explain trail-running figures. When a computation is needed, "
-        "call the tool rather than doing arithmetic yourself, and report the "
-        "figure it returns verbatim. Answer in the language of the question."
+        "You answer questions about the user's trail-running history. "
+        "Never answer from memory when a tool can answer: every figure you "
+        "report comes from a tool call. Call describe_dataset first in a "
+        "conversation, then follow the guidance carried by each tool's own "
+        "description. Answer in the language of the question."
     ),
-    tools=[km_effort],
+    tools=[trail_insight],
 )
