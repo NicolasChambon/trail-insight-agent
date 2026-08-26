@@ -58,7 +58,7 @@ WITH base AS (
           distance / 1000 + total_elevation_gain / 100))
     END AS pace_s_per_effort_km,
 
-    -- Physiology, with its coverage flag (ADR-008)
+    -- Physiology, with its coverage flag
     ROUND(average_heartrate) AS avg_heartrate_bpm,
     has_heartrate,
     ROUND(average_cadence, 1) AS avg_cadence_spm,

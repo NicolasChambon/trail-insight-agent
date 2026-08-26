@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Rebuilds the whole Google Cloud side of the project, idempotently.
 #
-# This exists because BigQuery runs in sandbox mode (no billing account,
-# ADR-001), which expires every table 60 days after creation. The dataset
-# WILL have to be rebuilt, and a README paragraph is not reproducible.
+# This exists because BigQuery runs in sandbox mode (no billing account), 
+# which expires every table 60 days after creation. The dataset WILL have to be 
+# rebuilt, and a README paragraph is not reproducible.
 #
 # Prerequisites:
 #   - gcloud authenticated: `gcloud auth login`
