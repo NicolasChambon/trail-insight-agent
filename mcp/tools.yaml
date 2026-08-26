@@ -102,30 +102,38 @@ parameters:
     description: Inclusive end date, ISO format YYYY-MM-DD.
     allowedValues:
       - '^\d{4}-\d{2}-\d{2}$'
-  - name: sport
-    type: string
+
+  - name: sports
+    type: array
     description: |
-      Exact sport name as returned by describe_dataset. Omit to include every 
-      sport.
+      Sport names as returned by describe_dataset, spelled exactly. Omit to
+      include every sport. Pass several to cover a family in one call: a
+      question about running means TrailRun, Run and VirtualRun together.
+      Never sum per-sport figures yourself - ask for the family instead,
+      so that the averages come back scoped to it.
     required: false
-    allowedValues:
-      - TrailRun
-      - Run
-      - Ride
-      - VirtualRide
-      - Hike
-      - Workout
-      - BackcountrySki
-      - Kayaking
-      - Swim
-      - AlpineSki
-      - WeightTraining
-      - RockClimbing
-      - Walk
-      - Crossfit
-      - Yoga
-      - VirtualRun
-      - Canoeing
+    items:
+      name: sport
+      type: string
+      description: One sport name, exactly as describe_dataset returns it.
+      allowedValues:
+        - "^TrailRun$"
+        - "^Run$"
+        - "^Ride$"
+        - "^VirtualRide$"
+        - "^Hike$"
+        - "^Workout$"
+        - "^BackcountrySki$"
+        - "^Kayaking$"
+        - "^Swim$"
+        - "^AlpineSki$"
+        - "^WeightTraining$"
+        - "^RockClimbing$"
+        - "^Walk$"
+        - "^Crossfit$"
+        - "^Yoga$"
+        - "^VirtualRun$"
+        - "^Canoeing$"
   - name: limit
     type: integer
     description: Maximum number of activities to return.
@@ -148,7 +156,7 @@ statement: |
   FROM `trail-insight-agent.trail_insight.v_activities`
   WHERE activity_date BETWEEN PARSE_DATE('%Y-%m-%d', @date_from)
                           AND PARSE_DATE('%Y-%m-%d', @date_to)
-    AND (@sport IS NULL OR sport = @sport)
+    AND (@sports IS NULL OR sport IN UNNEST(@sports))
   ORDER BY activity_date DESC
   LIMIT @limit
 
@@ -239,37 +247,47 @@ parameters:
       earlier than date_from.
     allowedValues:
       - '^\d{4}-\d{2}-\d{2}$'
-  - name: sport
-    type: string
+  # allowedValues are regexes matched unanchored, not an enum: bare "Run"
+  # accepts "Trail Run", and any string containing it. Anchored, they are
+  # the enum they were meant to be. Verified: "Trail Run" is now rejected.
+  - name: sports
+    type: array
     description: |
-      Exact sport name as returned by describe_dataset. Omit to include
-      every sport; the by_sport breakdown is returned either way.
+      Sport names as returned by describe_dataset, spelled exactly. Omit to
+      include every sport. Pass several to cover a family in one call: a
+      question about running means TrailRun, Run and VirtualRun together.
+      Never sum per-sport figures yourself - ask for the family instead,
+      so that the averages come back scoped to it.
     required: false
-    allowedValues:
-      - TrailRun
-      - Run
-      - Ride
-      - VirtualRide
-      - Hike
-      - Workout
-      - BackcountrySki
-      - Kayaking
-      - Swim
-      - AlpineSki
-      - WeightTraining
-      - RockClimbing
-      - Walk
-      - Crossfit
-      - Yoga
-      - VirtualRun
-      - Canoeing
+    items:
+      name: sport
+      type: string
+      description: One sport name, exactly as describe_dataset returns it.
+      allowedValues:
+        - "^TrailRun$"
+        - "^Run$"
+        - "^Ride$"
+        - "^VirtualRide$"
+        - "^Hike$"
+        - "^Workout$"
+        - "^BackcountrySki$"
+        - "^Kayaking$"
+        - "^Swim$"
+        - "^AlpineSki$"
+        - "^WeightTraining$"
+        - "^RockClimbing$"
+        - "^Walk$"
+        - "^Crossfit$"
+        - "^Yoga$"
+        - "^VirtualRun$"
+        - "^Canoeing$"
 statement: |
   WITH scoped AS (
     SELECT *
     FROM `trail-insight-agent.trail_insight.v_activities`
     WHERE activity_date BETWEEN PARSE_DATE('%Y-%m-%d', @date_from)
                             AND PARSE_DATE('%Y-%m-%d', @date_to)
-      AND (@sport IS NULL OR sport = @sport)
+      AND (@sports IS NULL OR sport IN UNNEST(@sports))
   ),
   span AS (
     SELECT
