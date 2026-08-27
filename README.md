@@ -1,8 +1,9 @@
 # trail-insight-agent
 
-A conversational GenAI agent that **explains** the performance of my trail-running
-training, grounded in my own Strava data stored in BigQuery. It explains what the
-numbers say — it never prescribes training nor gives medical advice.
+A conversational GenAI agent that reads and explains the performance of my
+trail-running training, grounded in my own Strava data stored in BigQuery.
+Every figure it reports comes from a tool call; nothing is answered from
+memory. The one thing it refuses outright is anything medical.
 
 ## Why this project
 
@@ -15,10 +16,11 @@ guardrails, and an evaluation harness.
 
 ## What it can (and can't) do
 
-- **Answers, with figures from BigQuery**: pace and heart-rate drift, elevation-gain
-  volume vs my 2-year average, comparison of a run against similar past runs.
-- **Refuses, by design**: training prescriptions ("what should I do this week?") and
-  anything medical ("do I have an injury?"). It explains, it does not advise.
+- **Grounded, or silent**: it reports what a tool returned, and says so when no
+  tool can answer. It never writes SQL, and never names a table or a column it
+  has not read.
+- **Refuses, by design**: anything medical ("do I have an injury?"). That is
+  the only outright refusal — narrow, true, and therefore testable.
 
 ## Stack
 
