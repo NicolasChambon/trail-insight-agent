@@ -20,3 +20,8 @@ __pycache__/
 
 # Personal data - never commit
 data/
+
+# OAuth client secret and user tokens - never commit. The token file is the 
+# athlete's delegation: whoever holds it reads the calendar and sends mail as 
+# him, with no password and no second factor.
+credentials/
