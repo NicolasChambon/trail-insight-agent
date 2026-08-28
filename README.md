@@ -125,8 +125,10 @@ and **ends by asserting the security invariant**: the service account reads
 `v_activities` and gets a `403` on `activities_raw`. It exits non-zero
 otherwise.
 
-BigQuery runs in sandbox mode (no billing account), so every table expires
-60 days after creation. Re-run the script to rebuild.
+The project carries a billing account — the Gemini API needs one: the free
+tier stops at 20 requests per day per model, and a question that chains two
+tools spends three of them. BigQuery therefore no longer runs in sandbox
+mode, and tables no longer expire.
 
 ### 6. Run the MCP server
 
