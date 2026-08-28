@@ -1,11 +1,18 @@
-"""Phase 5.2 - the ADK agent, wired tot he four BigQuery tools over MCP.
+"""Phase 6.1 - the ADK agent, wired to two MCP servers over stdio.
 
-The tools are not defined here. They live in mcp/tools.yaml and are served by
-the MCP Toolbox binary, which ADK starts as a child process and talks to over
-stdio - exactly the way Claude Code reaches the same server through .mcp.json.
-One server, one servervice account, one security surface to audit.
+No tool is defined in this file. The four BigQuery tools live in
+mcp/tools.yaml and are served by the MCP Toolbox binary; the hand-written
+ones live in trail_insight_agent.coach_server and are served by FastMCP.
+ADK starts both as child processes and talks to them over stdio - the
+same way Claude Code reaches them through .mcp.json.
+
+Two servers because they are two different jobs: Toolbox is declarative
+and reads a database under a least-privilege service account, FastMCP
+runs Python and will, from 6.2 on, act on the outside world. Splitting
+them keeps those two blast radii separate.
 """
 
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -48,6 +55,8 @@ Grounding
 - Call describe_dataset before the first query of a conversation, and
   spell sport names exactly as it returns them. A misspelled sport
   returns zero rows, which does not mean zero activities.
+- You have no clock. Every date you pass to a tool comes from
+  get_today, never from your own sense of when "now" is.
 
 Never
 - Never write SQL, DDL or a schema, not even as an illustration. You have
@@ -90,10 +99,28 @@ trail_insight = McpToolset(
     ],
 )
 
+coach_tools = McpToolset(
+    connection_params=StdioConnectionParams(
+        server_params=StdioServerParameters(
+            # sys.executable, not "python" and not a console script: the server
+            # is a module of this project, so it has to run under the very
+            # interpreter that has the project installed. That interpreter is
+            # this one, by construction - whereas a name resolved on PATH
+            # depends on whatever shell launched adk.
+            command=sys.executable,
+            args=["-m", "trail_insight_agent.coach_server"],
+        ),
+        # No timeout override here, unlike the Toolbox server: this one
+        # imports fastmcp and answers, in well under a second. The 20 s
+        # above buys Toolbox its BigQuery auth handshake, nothing else.
+    ),
+    tool_filter=["get_today"],
+)
+
 root_agent = Agent(
     name="trail_coach",
     model=MODEL,
     description="Answers questions about my trail-running history.",
     instruction=INSTRUCTION,
-    tools=[trail_insight],
+    tools=[trail_insight, coach_tools],
 )

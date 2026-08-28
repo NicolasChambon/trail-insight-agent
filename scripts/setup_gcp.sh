@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Rebuilds the whole Google Cloud side of the project, idempotently.
 #
-# This exists because BigQuery runs in sandbox mode (no billing account), 
-# which expires every table 60 days after creation. The dataset WILL have to be 
-# rebuilt, and a README paragraph is not reproducible.
+# This exists because a README paragraph is not reproducible. It was first
+# written under BigQuery sandbox mode, which expired every table 60 days after 
+# creation; the project now carries a billing account and that pressure is 
+# gone, but rebuilding the cloud side from one command is worth having on its
+# own - and the IAM assertion at the end is the only machine-checked statement
+# of the security invariant.
 #
 # Prerequisites:
 #   - gcloud authenticated: `gcloud auth login`
@@ -41,8 +44,10 @@ uv run scripts/build_ndjson.py
 
 step "Loading activities_raw (clustered, full replace)"
 # Clustered, not partitioned: 3,301 rows over 15 years would give ~2,850
-# partitions of ~170 bytes, and sandbox partition expiry is computed from
-# the partition date, which would delete the whole history at creation.
+# partitions of ~170 bytes each, which costs more in metadata than it saves in
+# scanning. Under sandbox mode there was a second, sharper reason - partition 
+# expiry counted from the partition date, so the whole history would have been 
+# deleted at creation. That one no longer applies.
 bq --project_id="$PROJECT" load \
    --replace \
    --source_format=NEWLINE_DELIMITED_JSON \

@@ -3,6 +3,10 @@
     "trail-insight": {
       "command": "toolbox",
       "args": ["--config", "mcp/tools.yaml", "--stdio"]
+    },
+    "trail-coach": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "trail_insight_agent.coach_server"]
     }
   }
 }

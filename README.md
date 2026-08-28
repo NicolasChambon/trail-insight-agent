@@ -26,8 +26,9 @@ guardrails, and an evaluation harness.
 
 - Google ADK — agent framework
 - BigQuery — data warehouse (partitioned, curated views)
-- MCP (Model Context Protocol) — data connectivity: MCP Toolbox for BigQuery plus a
-  custom FastMCP server for peer-comparison logic
+- MCP (Model Context Protocol) — two stdio servers behind one agent: MCP
+  Toolbox serves the BigQuery queries declaratively, a hand-written FastMCP
+  server serves everything that is not SQL
 - Evaluation harness — factual accuracy, grounding, and guardrail compliance
 
 ## Setup
