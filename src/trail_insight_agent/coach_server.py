@@ -6,34 +6,24 @@ everything else - what the machine knows now, and what the agent can change in
 the outside world. Two servers rather than four more queries, because they are
 two different jobs and only one of them is SQL.
 
-It also carries the project's second identity. The calendar and the mailbox are
-the athlete's, not the project's, so every call below rides on a consent he
-gave in a browser (see google_auth). The blast radius of this server is
-therefore the widest in the repo, and it is bounded three times over: by the
-scopes on the token, by the two constants below, and by the tool_filter in the
-agent.
+It also carries the project's second identity. The calendar is the athlete's,
+not the project's, so every call below rides on a consent he gave in a browser
+(see google_auth). The blast radius of this server is therefore the widest in
+the repo, and it is bounded three times over: by the scope on the token, by the
+two constants below, and by the tool_filter in the agent.
 
 Run it the way the agent runs it:
     uv run python -m trail_insight_agent.coach_server
 """
 
 from datetime import datetime, timedelta
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import httpx
-from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
 from trail_insight_agent import google_auth
-
-# Explicit path, and not a load_dotenv(): an MCP client starts this server as a
-# child process with a deliberately minimal environment - the parent's
-# variables are not inherited - from a working directory nobody here chose.
-# Both make the usual search-upwards lookup unreliable.
-REPO_ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(REPO_ROOT / ".env")
 
 # Hard-coded, not read from the host clock: the athlete trains in one place,
 # and "today" must not shift because the process happened to start in a
@@ -41,9 +31,8 @@ load_dotenv(REPO_ROOT / ".env")
 ATHLETE_TIMEZONE = "Europe/Paris"
 
 CALENDAR_API = "https://www.googleapis.com/calendar/v3"
-GMAIL_API = "https://gmail.googleapis.com/gmail/v1"
 
-# "primary", and not a calendar id taken as an argument: The token can write to
+# "primary", and not a calendar id taken as an argument: the token can write to
 # every calendar the athlete owns; the agent may write to one. This is the
 # boundary the OAuth scope is not fine-grained enough to express.
 CALENDAR_ID = "primary"
@@ -55,7 +44,7 @@ MAX_EVENTS = 50
 mcp = FastMCP(
     name="trail_coach",
     instructions=(
-        "Tools that do not come from the training database: what the current"
+        "Tools that do not come from the training database: what the current "
         "date is, and what the agent can act on."
     ),
 )
@@ -129,7 +118,7 @@ def find_planned_sessions(start_date: str, end_date: str) -> dict:
 
     Args:
         start_date: first day to cover, YYYY-MM-DD.
-        end_date: last day NOT covered, YYYY-MM-DD. Exclusive, so a single day
+        end_date: first day NOT covered, YYYY-MM-DD. Exclusive, so a single day
             is start_date plus one.
 
     Both come from get_today when the question names a period relative to now.
@@ -142,7 +131,7 @@ def find_planned_sessions(start_date: str, end_date: str) -> dict:
             "timeMax": _day_start(end_date),
             # Expand a recurring event into its occurrences. Without this a
             # weekly club session comes back once, carrying a reccurence rule
-            # the model would have to interpret =  and would interpret wrong.
+            # the model would have to interpret -  and would interpret wrong.
             "singleEvents": "true",
             "orderBy": "startTime",
             "maxResults": MAX_EVENTS,
@@ -172,7 +161,13 @@ def find_planned_sessions(start_date: str, end_date: str) -> dict:
     }
 
 
-@mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
+@mcp.tool(
+    annotations={
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+    }
+)
 def schedule_session(
     title: str,
     date: str,
@@ -203,7 +198,7 @@ def schedule_session(
     start = datetime.fromisoformat(f"{date}T{start_time}").replace(
         tzinfo=timezone
     )
-    # A model with a shaky sense of "now" writting into a calendar is how you
+    # A model with a shaky sense of "now" writing into a calendar is how you
     # get a session scheduled last March. get_today exists so this never
     # triggers; the check is here because "never" is a claim, not a guarantee.
     if start < datetime.now(timezone) - timedelta(hours=1):
@@ -244,5 +239,5 @@ def schedule_session(
 
 if __name__ == "__main__":
     # stdio: one client, one child process, no port and no network. The same
-    # transport ADK already uses for the Toolbow binary.
+    # transport ADK already uses for the Toolbox binary.
     mcp.run(transport="stdio", show_banner=False)

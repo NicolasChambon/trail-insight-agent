@@ -1,10 +1,10 @@
 """User OAuth credentials for the Google APIs that touch personal data.
 
 BigQuery is reached with a service account: the data belongs to the project, so
-an identity the project owns is enough. Calendar and Gmail hold the athlete's
-own data, which no project-owned identity is entitled to read. Google hands
-those over only against a consent a human gave in a browser, to a named client,
-for named scopes. Loading that consent is all this file does.
+an identity the project owns is enough. The calendar holds the athlete's own
+data, which no project-owned identity is entitled to read. Google hands it over
+only against a consent a human gave in a browser, to a named client, for named
+scopes. Loading that consent is all this file does.
 
 The browser part happens once, in scripts/google_auth.py. Here we only read the
 stored token and refresh it - the same split as strava.py, where the
@@ -29,14 +29,15 @@ TOKEN_FILE = CREDENTIALS_DIR / "google_token.json"
 # to a human's account instead of a project's:
 # - calendar.events writes events, and nothing about the calendars themselves
 #   - no sharing, no ACL, no deletion of a calendar.
-# - gmail.send sends as the athlete, and nothing else. It cannot list, read or
-#   search a single message. The inbox is not merely off-limits to the agent:
-#   it is unreachable with this token, whatever the agent decides to do.
+# One scope, because one API. Sending mail is the weekly report's business, and
+# the weekly report is a scheduled job rather than an agent tool; gmail.send is
+# granted the day that job exists and not a week earlier. A permission held
+# "for later" renders no service in the meantime and widens what a stolen token
+# is worth.
 # Widening this list invalidates the stored token: scopes are part of what was
 # consented to, so a new scope means a new trip through the browser.
 SCOPES = [
     "https://www.googleapis.com/auth/calendar.events",
-    "https://www.googleapis.com/auth/gmail.send",
 ]
 
 
