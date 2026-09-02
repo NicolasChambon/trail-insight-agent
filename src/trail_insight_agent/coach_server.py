@@ -130,8 +130,8 @@ def find_planned_sessions(start_date: str, end_date: str) -> dict:
             "timeMin": _day_start(start_date),
             "timeMax": _day_start(end_date),
             # Expand a recurring event into its occurrences. Without this a
-            # weekly club session comes back once, carrying a reccurence rule
-            # the model would have to interpret -  and would interpret wrong.
+            # weekly club session comes back once, carrying a recurence rule
+            # the model would have to interpret - and would interpret wrong.
             "singleEvents": "true",
             "orderBy": "startTime",
             "maxResults": MAX_EVENTS,

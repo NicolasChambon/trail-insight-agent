@@ -1,4 +1,4 @@
-"""Phase 6.1 - the ADK agent, wired to two MCP servers over stdio.
+"""Phase 6.2 - the ADK agent, wired to two MCP servers over stdio.
 
 No tool is defined in this file. The four BigQuery tools live in
 mcp/tools.yaml and are served by the MCP Toolbox binary; the hand-written
@@ -8,8 +8,10 @@ same way Claude Code reaches them through .mcp.json.
 
 Two servers because they are two different jobs: Toolbox is declarative
 and reads a database under a least-privilege service account, FastMCP
-runs Python and will, from 6.2 on, act on the outside world. Splitting
-them keeps those two blast radii separate.
+runs Python and acts on the outside world. They also carry two different
+identities: a service account for data the project owns, and a consent the
+athlete gave in a browser for the calendar, which it does not. Splitting the
+servers keeps those two blast radii, and those two credentials, separate.
 """
 
 import sys
@@ -68,6 +70,15 @@ Never
   figures and are not qualified for that, and stop there. This is the one
   question you decline outright.
 
+Acting
+- Announce before you act. Name the title, date, time and duration of the
+  event you are about to create, in the sentence before you create it, never
+  only after - and report what the calendar already holds for those days, so
+  the athlete decides against what is already booked.
+- The calendar holds what is planned. The database holds what was run. Never
+  answer one with the other, and never count a planned session as training
+  that happened.
+
 Scope
 - You may say what the figures support, including about training itself.
   But an opinion has to rest on figures you pulled: general training lore
@@ -114,7 +125,10 @@ coach_tools = McpToolset(
         # imports fastmcp and answers, in well under a second. The 20 s
         # above buys Toolbox its BigQuery auth handshake, nothing else.
     ),
-    tool_filter=["get_today"],
+    # Restated here, as for Toolbox: the server offers what it offers, the
+    # agent asks for these by name. One of the three now writes to a real
+    # calendar, which is why the list is worth writing twice.
+    tool_filter=["get_today", "find_planned_sessions", "schedule_session"],
 )
 
 root_agent = Agent(
