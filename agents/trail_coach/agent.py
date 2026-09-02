@@ -95,8 +95,9 @@ trail_insight = McpToolset(
             command="toolbox",
             args=["--config", str(TOOLS_YAML), "--stdio"],
         ),
-        # Toolbox authenticates to BiqQuery and mints an impersonated token before
-        # it answers tools/list. The 5 s default is not enough on a cold start.
+        # Toolbox authenticates to BiqQuery and mints an impersonated token
+        # before it answers tools/list. The 5 s default is not enough on a cold
+        # start.
         timeout=20.0,
     ),
     # The allow-list, restated client-side. The server would serve whatever
