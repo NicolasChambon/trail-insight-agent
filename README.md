@@ -21,14 +21,19 @@ guardrails, and an evaluation harness.
   has not read.
 - **Refuses, by design**: anything medical ("do I have an injury?"). That is
   the only outright refusal — narrow, true, and therefore testable.
+- **Acts, narrowly**: it reads the athlete's Google Calendar and can add a
+  training session to it, under a user OAuth consent kept separate from the
+  service account that reads BigQuery. It cannot delete an event, cannot touch
+  calendar but the primary one, and cannot reach a mailbox at all.
 
 ## Stack
 
 - Google ADK — agent framework
 - BigQuery — data warehouse (partitioned, curated views)
 - MCP (Model Context Protocol) — two stdio servers behind one agent: MCP
-  Toolbox serves the BigQuery queries declaratively, a hand-written FastMCP
-  server serves everything that is not SQL
+  Toolbox serves the BigQuery queries declaratively under a service account, a
+  hand-written FastMCP server serves everything that is not SQL and carries the
+  user OAuth consent for Google Calendar.
 - Evaluation harness — factual accuracy, grounding, and guardrail compliance
 
 ## Setup
@@ -110,6 +115,68 @@ every run.
 Verify:
 
 `uv run scripts/strava_whoami.py`
+
+#### 3.3 Google Calendar
+
+BigQuery is read by a service account, because the data belongs to the
+project. The calendar does not: it belongs to a person, and Google hands it
+over only against a consent that person gave in a browser. Two identity models
+in one project, on purpose.
+
+```sh
+gcloud services enable calendar-json.googleapis.com --project trail-insight-agent
+```
+
+Then in the console, under **Google Auth Platform** — the pages that replaced
+the old "OAuth consent screen" wizard:
+
+- **Branding** — app name and a support email. Everything else stays empty: a
+  Desktop client has no domain, no home page and no privacy policy to show.
+- **Audience** — user type `External`, publishing status `Testing`, and the
+  athlete's Google account added under **Test users**. This is the page that
+  decides whether the flow works at all; an account missing here gets a bare
+  `403 access_denied`. Note that this need not be the account the console is
+  open with — the client belongs to the project, the consent belongs to a
+  person.
+- **Data Access** — add `https://www.googleapis.com/auth/calendar.events`, and
+  nothing else. It writes events and nothing about the calendars themselves:
+  no sharing, no ACL, no deleting a calendar.
+- **Clients** — create an OAuth client of type **Desktop app**, not "Web
+  application". Only the Desktop type accepts an arbitrary
+  `http://127.0.0.1:<port>` callback, which is what lets the script pick a free
+  port instead of registering one in the console.
+
+Download the client JSON and save it as `credentials/google_oauth_client.json`.
+The whole directory is gitignored; check that before going further.
+
+```sh
+git check-ignore -v credentials/google_oauth_client.json   # must print a rule
+```
+
+**Run the consent once:**
+
+```sh
+uv run scripts/google_auth.py
+```
+
+A browser opens. Sign in **as the athlete**, and approve. The "Google hasn't
+verified this app" screen is expected while the app is in Testing: Advanced →
+Continue. Only the refresh token is persisted, in
+`credentials/google_token.json`; the access token lives about an hour and is
+re-derived on demand, exactly like Strava's.
+
+Verify:
+
+```sh
+uv run python -c "from trail_insight_agent.google_auth import get_access_token; \
+print(get_access_token()[:16], '...')"
+```
+
+**Note the seven days.** While the publishing status is `Testing`, Google
+expires refresh tokens after a week. When every calendar tool starts answering
+"run scripts/google_auth.py", that is why. Switching the app to "In production"
+removes the limit at the cost of an unverified-app warning, and will be
+required the day anything runs unattended.
 
 ### 4. Fetch the activity history
 
